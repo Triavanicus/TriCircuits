@@ -1,0 +1,9 @@
+---------------------------------------------------------------------------------------------------
+Version: 0.1.0
+Date: 2020-03-10T11:03:06-5:00
+  Features:
+    - Added a multiplexer system which can be used to send several channels of data over one circuit wire
+  Circuit Network:
+    - Added a channel selector for a multiplexer system
+    - Added a multiplexer/mux
+    - Added a demultiplexer/demux
