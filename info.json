@@ -1,6 +1,6 @@
 {
     "name": "TriCircuits",
-    "version": "0.1.2",
+    "version": "0.1.4",
     "title": "TriCircuits",
     "author": "Triavanicus",
     "description": "Creates extra circuits to expand the base game's capability of the circuit network. Currently it only adds a multiplexer system",

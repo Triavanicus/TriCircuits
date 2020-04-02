@@ -137,6 +137,7 @@ script.on_event(defines.events.on_gui_opened, function(e)
     local player = game.players[e.player_index]
     if e.gui_type == defines.gui_type.entity then
         local entity = e.entity
+        if entity == nil then return end
         if entity.name == "tri-channel-selector" then
             local channel_selector = global.channel_selectors[entity.unit_number]
             local control = channel_selector.get_or_create_control_behavior()
@@ -232,6 +233,7 @@ script.on_event(defines.events.on_gui_closed, function(e)
     local player = game.players[e.player_index]
     if e.gui_type == defines.gui_type.custom then
         local element = e.element
+        if element == nil then return end
         if element.name == "tri-channel-selector-gui" then
             element.destroy()
         elseif element.name == "tri-mux-gui" then
@@ -244,6 +246,7 @@ end)
 
 script.on_event(defines.events.on_gui_value_changed, function (e)
     local element = e.element
+    if element == nil then return end
     if element.name == "tri-channel-selector-gui/channel/slider" then
         local gui = element.parent.parent
         gui["channel"]["tri-channel-selector-gui/channel/text"].text = element.slider_value
@@ -263,6 +266,7 @@ end)
 
 script.on_event(defines.events.on_gui_text_changed, function(e)
     local element = e.element
+    if element == nil then return end
     if element.name == "tri-channel-selector-gui/channel/text" then
         local value = tonumber(element.text) or MIN_CHANNELS
         if value > MAX_CHANNELS then
