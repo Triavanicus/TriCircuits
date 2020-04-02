@@ -7,3 +7,13 @@ Date: 2020-03-10T11:03:06-5:00
     - Added a channel selector for a multiplexer system
     - Added a multiplexer/mux
     - Added a demultiplexer/demux
+---------------------------------------------------------------------------------------------------
+Version: 0.1.1
+Date: 2020-04-01T15:27:37-5:00
+  Features:
+    - Added copy and paste support for channels, can copy channel to/from multiplexer and demultiplexer
+---------------------------------------------------------------------------------------------------
+Version: 0.1.2
+Date: 2020-04-01T15:27:37-5:00
+  Features:
+    - Updated to 0.18

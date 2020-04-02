@@ -3,23 +3,28 @@ script.on_init(function()
     -- setup default global variable or change game parameters
 end)
 
-script.on_configuration_changed(function(data)
-    -- used for game or prototype changes.
-end)
-
-script.on_load(function()
-    -- set local variables from global variable, setup metatables, setup conditional events
-end)
 --]]
+require "scripts.multiplexer"
 
-local CHANNEL_COUNT_SIGNAL = { type = "virtual", name = "tri-signal-channel-count" }
-local CHANNEL_SIGNAL = { type = "virtual", name = "tri-signal-channel" }
-local INPUT_CONNECTOR = defines.circuit_connector_id.combinator_input
-local OUTPUT_CONNECTOR = defines.circuit_connector_id.combinator_output
-local MAX_CHANNELS = 128
-local MAX_CHANNEL = MAX_CHANNELS - 1
-local MIN_CHANNELS = 1
-local MIN_CHANNEL = 0
+script.on_configuration_changed(function(data)
+    if data.mod_changes.TriCircuits then
+        local old_version = data.mod_changes.TriCircuits.old_version
+        if old_version and old_version < "0.1.1" then
+            for id, mux in pairs(global.muxs) do
+                local control = mux.input.get_or_create_control_behavior()
+                control.parameters = { parameters = { first_constant = mux.channel } }
+                log("Updating mux " .. id .. " to 0.1.1, old channel: " .. mux.channel .. ", new channel: " .. control.parameters.parameters.first_constant)
+                mux.channel = nil
+            end
+            for id, demux in pairs(global.demuxs) do
+                local control = demux.input.get_or_create_control_behavior()
+                control.parameters = { parameters = { first_constant = demux.channel } }
+                log("Updating demux " .. id .. " to 0.1.1, old channel: " .. demux.channel .. ", new channel: " .. control.parameters.parameters.first_constant)
+                demux.channel = nil
+            end
+        end
+    end
+end)
 
 local function setup_global()
     global.channel_selectors = global.channel_selectors or {}
@@ -31,20 +36,24 @@ script.on_init(function()
     setup_global()
 end)
 
+script.on_load(function()
+    -- set local variables from global variable, setup metatables, setup conditional events
+    for id, mux in pairs(global.muxs) do
+        muxs[id] = Mux:new{ input = mux.input, output = mux.output }
+    end
+    for id, demux in pairs(global.demuxs) do
+        demuxs[id] = Demux:new{ input = demux.input, output = demux.output }
+    end
+end)
+
 local function on_entity_built(entity, force)
     if entity.name == "tri-channel-selector" then
         global.channel_selectors[entity.unit_number] = entity
         entity.get_or_create_control_behavior().parameters = { parameters = { { index = 1, signal = CHANNEL_COUNT_SIGNAL, count = 1 } } }
     elseif entity.name == "tri-mux" then
-        local output = entity.surface.create_entity{ name = "tri-hidden-output-combinator", position = entity.position, force = force }
-        entity.connect_neighbour{ target_entity = output, wire = defines.wire_type.red, source_circuit_id = OUTPUT_CONNECTOR }
-        entity.connect_neighbour{ target_entity = output, wire = defines.wire_type.green, source_circuit_id = OUTPUT_CONNECTOR }
-        global.muxs[entity.unit_number] = { input = entity, output = output, channel = 0 }
+        Mux:build(entity)
     elseif entity.name == "tri-demux" then
-        local output = entity.surface.create_entity{ name = "tri-hidden-output-combinator", position = entity.position, force = force }
-        entity.connect_neighbour{ target_entity = output, wire = defines.wire_type.red, source_circuit_id = OUTPUT_CONNECTOR }
-        entity.connect_neighbour{ target_entity = output, wire = defines.wire_type.green, source_circuit_id = OUTPUT_CONNECTOR }
-        global.demuxs[entity.unit_number] = { input = entity, output = output, channel = 0 }
+        Demux:build(entity)
     end
 end
 
@@ -60,16 +69,17 @@ local function on_entity_destroyed(entity)
     if entity.name == "tri-channel-selector" then
         global.channel_selectors[entity.unit_number] = nil
     elseif entity.name == "tri-mux" then
-        local output = global.muxs[entity.unit_number].output
+        local output = muxs[entity.unit_number].output
         if output.valid then
             output.destroy()
         end
-        global.muxs[entity.unit_number] = nil
+        muxs[entity.unit_number] = nil
     elseif entity.name == "tri-demux" then
-        local output = global.demuxs[entity.unit_number].output
+        local output = demuxs[entity.unit_number].output
         if output.valid then
             output.destroy()
         end
+        demuxs[entity.unit_number] = nil
         global.demuxs[entity.unit_number] = nil
     end
 end
@@ -97,34 +107,11 @@ script.on_event(defines.events.on_tick, function ()
             control.set_signal(2, { signal = CHANNEL_SIGNAL, count = 0 })
         end
     end
-    for _, mux in pairs(global.muxs) do
-        local control = mux.output.get_or_create_control_behavior()
-        if mux.output.get_merged_signal(CHANNEL_SIGNAL) == mux.channel then
-            local signals = mux.input.get_merged_signals(INPUT_CONNECTOR)
-            if signals then
-                for i, signal in pairs(signals) do
-                    control.set_signal(i, signal)
-                end
-            end
-        else
-            control.parameters = { parameters = {} }
-        end
+    for _, mux in pairs(muxs) do
+        mux:tick()
     end
-    for _, demux in pairs(global.demuxs) do
-        if demux.input.get_merged_signal(CHANNEL_SIGNAL, INPUT_CONNECTOR) == demux.channel + 1 then
-            local control = demux.output.get_or_create_control_behavior()
-            local signals = demux.input.get_merged_signals(INPUT_CONNECTOR)
-            if signals then
-                demux.output.get_or_create_control_behavior().parameters = { parameters = {} }
-                for i, signal in pairs(signals) do
-                    if signal.signal.name ~= CHANNEL_SIGNAL.name and signal.signal.name ~= CHANNEL_COUNT_SIGNAL.name then
-                        control.set_signal(i, signal)
-                    end
-                end
-            else
-                control.parameters = { parameters = {} }
-            end
-        end
+    for _, demux in pairs(demuxs) do
+        demux:tick()
     end
 end)
 
@@ -180,7 +167,9 @@ script.on_event(defines.events.on_gui_opened, function(e)
             slider_text.style.width = 40
             player.opened = root
         elseif entity.name == "tri-mux" then
-            local mux = global.muxs[entity.unit_number]
+            local mux = muxs[entity.unit_number]
+            local channel = mux:get_channel()
+
             local root = create_lone_frame(player, "tri-mux-gui", entity.localised_name)
             add_entity_preview(root, entity)
             root.add{type = "line", direction = "horizontal" }
@@ -192,12 +181,12 @@ script.on_event(defines.events.on_gui_opened, function(e)
                 name = "tri-mux-gui/channel/slider",
                 minimum_value = 0,
                 maximum_value = 127,
-                value = mux.channel
+                value = channel
             }
             local slider_text = row.add{
                 type = "textfield",
                 name = "tri-mux-gui/channel/text",
-                text = mux.channel,
+                text = channel,
                 numeric = true,
                 allow_negative = false,
                 allow_decimal = false,
@@ -207,7 +196,9 @@ script.on_event(defines.events.on_gui_opened, function(e)
             slider_text.style.width = 50
             player.opened = root
         elseif entity.name == "tri-demux" then
-            local demux = global.demuxs[entity.unit_number]
+            local demux = demuxs[entity.unit_number]
+            local channel = demux:get_channel()
+
             local root = create_lone_frame(player, "tri-demux-gui", entity.localised_name)
             add_entity_preview(root, entity)
             root.add{type = "line", direction = "horizontal" }
@@ -219,12 +210,12 @@ script.on_event(defines.events.on_gui_opened, function(e)
                 name = "tri-demux-gui/channel/slider",
                 minimum_value = 0,
                 maximum_value = 127,
-                value = demux.channel
+                value = channel
             }
             local slider_text = row.add{
                 type = "textfield",
                 name = "tri-demux-gui/channel/text",
-                text = demux.channel,
+                text = channel,
                 numeric = true,
                 allow_negative = false,
                 allow_decimal = false,
@@ -262,11 +253,11 @@ script.on_event(defines.events.on_gui_value_changed, function (e)
     elseif element.name == "tri-mux-gui/channel/slider" then
         local gui = element.parent.parent
         gui["channel"]["tri-mux-gui/channel/text"].text = element.slider_value
-        global.muxs[gui["entity-preview"].entity.unit_number].channel = element.slider_value
+        muxs[gui["entity-preview"].entity.unit_number]:set_channel(element.slider_value)
     elseif element.name == "tri-demux-gui/channel/slider" then
         local gui = element.parent.parent
         gui["channel"]["tri-demux-gui/channel/text"].text = element.slider_value
-        global.demuxs[gui["entity-preview"].entity.unit_number].channel = element.slider_value
+        demuxs[gui["entity-preview"].entity.unit_number]:set_channel(element.slider_value)
     end
 end)
 
@@ -281,8 +272,7 @@ script.on_event(defines.events.on_gui_text_changed, function(e)
         local gui = element.parent.parent
         gui["channel"]["tri-channel-selector-gui/channel/slider"].slider_value = value
         local channel_selector = global.channel_selectors[gui["entity-preview"].entity.unit_number]
-        local control = channel_selector.get_or_create_control_behavior()
-        control.set_signal(1, { signal = CHANNEL_COUNT_SIGNAL, count = value })
+        channel_selector.get_or_create_control_behavior().set_signal(1, { signal = CHANNEL_COUNT_SIGNAL, count = value })
     elseif element.name == "tri-mux-gui/channel/text" then
         local value = tonumber(element.text) or MIN_CHANNEL
         if value > MAX_CHANNEL then
@@ -291,7 +281,7 @@ script.on_event(defines.events.on_gui_text_changed, function(e)
         end
         local gui = element.parent.parent
         gui["channel"]["tri-mux-gui/channel/slider"].slider_value = value
-        global.muxs[gui["entity-preview"].entity.unit_number].channel = value
+        muxs[gui["entity-preview"].entity.unit_number]:set_channel(value)
     elseif element.name == "tri-demux-gui/channel/text" then
         local value = tonumber(element.text) or MIN_CHANNEL
         if value > MAX_CHANNEL then
@@ -300,6 +290,6 @@ script.on_event(defines.events.on_gui_text_changed, function(e)
         end
         local gui = element.parent.parent
         gui["channel"]["tri-demux-gui/channel/slider"].slider_value = value
-        global.demuxs[gui["entity-preview"].entity.unit_number].channel = value
+        demuxs[gui["entity-preview"].entity.unit_number]:set_channel(value)
     end
 end)

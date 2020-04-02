@@ -6,6 +6,17 @@ import shutil
 verbose = False
 
 
+def _log(*args):
+    print(*args)
+
+
+def _log_stub(*args):
+    pass
+
+
+log = _log if verbose else _log_stub
+
+
 def main():
     name, version = get_name_and_version()
     dir_name = f"{name}_{version}"
@@ -47,8 +58,7 @@ def create_directory(directory):
     for i in range(1, len(directories)):
         name = "/".join(directories[0:i])
         if not os.path.exists(name):
-            if verbose:
-                print(f"creating directory \"{name}\"")
+            log(f"creating directory \"{name}\"")
             os.mkdir(name)
 
 
@@ -75,15 +85,12 @@ def update_mod_files(export_folder, mods_folder, files):
 def update_file(src, dest):
     if os.path.exists(dest):
         if os.path.getmtime(src) == os.path.getmtime(dest):
-            if verbose:
-                print(f"skipping \"{dest}\"")
+            log(f"skipping \"{dest}\"")
         else:
-            if verbose:
-                print(f"updating \"{dest}\"")
+            log(f"updating \"{dest}\"")
             shutil.copy2(src, dest)
     else:
-        if verbose:
-            print(f"adding \"{dest}\"")
+        log(f"adding \"{dest}\"")
         shutil.copy2(src, dest)
 
 
@@ -93,16 +100,14 @@ def remove_extra_files(export_folder, mods_folder, export_list):
         rel_file = file[len(mods_folder):]
         export_file = f"{export_folder}{rel_file}"
         if not os.path.exists(export_file):
-            if verbose:
-                print(f"removing \"{file}\"")
+            log(f"removing \"{file}\"")
             os.remove(file)
             rel_folders = rel_file.split("/")[:-1]
             folders = (f'{mods_folder}{"/".join(rel_folders[0:i])}'
                        for i in range(len(rel_folders), -1, -1))
             for folder in folders:
                 if os.path.exists(folder) and os.path.isdir(folder) and not os.listdir(folder):
-                    if verbose:
-                        print(f"removing \"{folder}\"")
+                    log(f"removing \"{folder}\"")
                     os.rmdir(folder)
 
 
