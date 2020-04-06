@@ -1,0 +1,15 @@
+{
+    "export_directory": "./exports/",
+    "mods_directory": "C:/Users/triav/AppData/Roaming/Factorio/mods/",
+    "include": [
+        "**/*.png",
+        "**/*.lua",
+        "locale/**/*.cfg",
+        "changelog.txt",
+        "**/*.json"
+    ],
+    "exclude": [
+        "exports/",
+        "export_files.json"
+    ]
+}
