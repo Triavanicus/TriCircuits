@@ -1,6 +1,6 @@
 ---------------------------------------------------------------------------------------------------
 Version: 0.1.0
-Date: 2020-03-10T11:03:06-5:00
+Date: 2020-03-10T11:03:06Z
   Features:
     - Added a multiplexer system which can be used to send several channels of data over one circuit wire
   Circuit Network:
@@ -9,7 +9,7 @@ Date: 2020-03-10T11:03:06-5:00
     - Added a demultiplexer/demux
 ---------------------------------------------------------------------------------------------------
 Version: 0.1.1
-Date: 2020-04-01T15:27:37-5:00
+Date: 2020-04-01T15:27:37Z
   Features:
     - Added copy and paste support for channels, can copy channel to/from multiplexer and demultiplexer
 ---------------------------------------------------------------------------------------------------
@@ -17,3 +17,8 @@ Version: 0.1.2
 Date: 2020-04-01T15:27:37-5:00
   Features:
     - Updated to 0.18
+---------------------------------------------------------------------------------------------------
+Version: 0.1.5
+Date: 2020-04-04T14:59:23Z
+  Bugfix:
+    - Game saves broken due to saving invalid entity reference (multiplexer)

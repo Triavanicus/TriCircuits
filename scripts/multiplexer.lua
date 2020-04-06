@@ -18,12 +18,33 @@ function Mux:new(o)
     return o
 end
 
+function Mux:is_valid()
+    return self.input.valid and self.output.valid or false
+end
+
 function Mux:build(entity)
     local output = entity.surface.create_entity{ name = "tri-hidden-output-combinator", position = entity.position, force = force }
     entity.connect_neighbour{ target_entity = output, wire = defines.wire_type.red, source_circuit_id = OUTPUT_CONNECTOR }
     entity.connect_neighbour{ target_entity = output, wire = defines.wire_type.green, source_circuit_id = OUTPUT_CONNECTOR }
     global.muxs[entity.unit_number] = { input = entity, output = output }
     muxs[entity.unit_number] = Mux:new(global.muxs[entity.unit_number])
+end
+
+function Mux:remove(key)
+    if key ~= nil then
+        muxs[key] = nil
+        global.muxs[key] = nil
+    end
+end
+
+function Mux:destroy(key)
+    self:remove(key)
+    if self.input.valid then
+        self.input.destroy()
+    end
+    if self.output.valid then
+        self.output.destroy()
+    end
 end
 
 function Mux:get_input_control()
@@ -81,6 +102,13 @@ function Demux:build(entity)
     entity.connect_neighbour{ target_entity = output, wire = defines.wire_type.green, source_circuit_id = OUTPUT_CONNECTOR }
     global.demuxs[entity.unit_number] = { input = entity, output = output }
     demuxs[entity.unit_number] = Demux:new(global.demuxs[entity.unit_number])
+end
+
+function Demux:remove(key)
+    if key ~= nil then
+        demuxs[key] = nil
+        global.demuxs[key] = nil
+    end
 end
 
 function Demux:tick()

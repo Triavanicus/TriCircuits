@@ -66,21 +66,13 @@ script.on_event(defines.events.on_robot_built_entity, function(e)
 end)
 
 local function on_entity_destroyed(entity)
+    local key = entity.unit_number
     if entity.name == "tri-channel-selector" then
-        global.channel_selectors[entity.unit_number] = nil
+        global.channel_selectors[key] = nil
     elseif entity.name == "tri-mux" then
-        local output = muxs[entity.unit_number].output
-        if output.valid then
-            output.destroy()
-        end
-        muxs[entity.unit_number] = nil
+        muxs[key]:destroy(key)
     elseif entity.name == "tri-demux" then
-        local output = demuxs[entity.unit_number].output
-        if output.valid then
-            output.destroy()
-        end
-        demuxs[entity.unit_number] = nil
-        global.demuxs[entity.unit_number] = nil
+        demuxs[key]:destroy(key)
     end
 end
 
@@ -107,11 +99,20 @@ script.on_event(defines.events.on_tick, function ()
             control.set_signal(2, { signal = CHANNEL_SIGNAL, count = 0 })
         end
     end
-    for _, mux in pairs(muxs) do
-        mux:tick()
+    for key, mux in pairs(muxs) do
+        if mux:is_valid() then
+            mux:tick()
+        else
+            mux:destroy(key)
+        end
+
     end
-    for _, demux in pairs(demuxs) do
-        demux:tick()
+    for key, demux in pairs(demuxs) do
+        if demux:is_valid() then
+            demux:tick()
+        else
+            demux:destroy(key)
+        end
     end
 end)
 
@@ -137,7 +138,7 @@ script.on_event(defines.events.on_gui_opened, function(e)
     local player = game.players[e.player_index]
     if e.gui_type == defines.gui_type.entity then
         local entity = e.entity
-        if entity == nil then return end
+        if entity == nil or entity.valid == false then return end
         if entity.name == "tri-channel-selector" then
             local channel_selector = global.channel_selectors[entity.unit_number]
             local control = channel_selector.get_or_create_control_behavior()
